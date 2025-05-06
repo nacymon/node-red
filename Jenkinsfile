@@ -31,7 +31,7 @@ pipeline {
         }
         stage('Deploy Locally') {
             steps {
-                sh 'docker run -d -p $APP_PORT:1880 --name node-red-instance $IMAGE_NAME'
+                sh 'docker run -d -p $APP_PORT:3000 --name node-red-instance $IMAGE_NAME'
                 sh 'sleep 10'
                 sh 'curl -f http://localhost:$APP_PORT || exit 1'
             }
