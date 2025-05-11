@@ -24,7 +24,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Checkout') {
             steps {
                 git 'https://github.com/nacymon/node-red' 
@@ -45,7 +45,7 @@ pipeline {
                     // Zatrzymaj, jeśli przypadkiem działa
                     sh "docker rm -f $CONTAINER_NAME || true"
                     // Uruchom na porcie 3000
-                    sh "docker run -d --name $CONTAINER_NAME -p 8081:3000 $DOCKER_IMAGE"
+                    sh "docker run -d --name $CONTAINER_NAME -p 8080:3000 $DOCKER_IMAGE"
                     // Daj aplikacji czas na odpalenie
                     sh "sleep 10"
                 }
