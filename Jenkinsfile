@@ -2,21 +2,22 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "nacymon/node-red-ci"  
+        DOCKER_IMAGE = "nacymon/node-red-ci"
         CONTAINER_NAME = "node-red-test"
+        APP_PORT = "3000"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/nacymon/node-red' 
+                git 'https://github.com/nacymon/node-red'
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh 'docker build -t $DOCKER_IMAGE .'
+                    sh "docker build -t ${DOCKER_IMAGE} ."
                 }
             }
         }
@@ -24,23 +25,18 @@ pipeline {
         stage('Run container') {
             steps {
                 script {
-                    // Zatrzymaj, jeśli przypadkiem działa
-                    sh "docker rm -f $CONTAINER_NAME || true"
-                    // Uruchom na porcie 3000
-                    sh "docker run -d --name $CONTAINER_NAME -p 3000:3000 $DOCKER_IMAGE"
-                    // Daj aplikacji czas na odpalenie
-                    sh "sleep 10"
+                    sh "docker rm -f ${CONTAINER_NAME} || true"
+                    sh "docker run -d --name ${CONTAINER_NAME} -p ${APP_PORT}:${APP_PORT} ${DOCKER_IMAGE}"
+                    sleep(time: 10, unit: 'SECONDS') // daj aplikacji czas
                 }
             }
         }
 
-        stage('Health check (curl)') {
+        stage('Health check') {
             steps {
                 script {
-                    // Sprawdź, czy curl działa — jak nie, zainstaluj
-                    sh 'which curl || (apt update && apt install -y curl)'
-                    // Sprawdź, czy aplikacja odpowiada na porcie 3000
-                    sh 'curl -f http://localhost:3000 || exit 1'
+                    // Sprawdź odpowiedź aplikacji
+                    sh "curl -f http://localhost:${APP_PORT} || exit 1"
                 }
             }
         }
@@ -49,8 +45,8 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     script {
-                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                        sh "docker push $DOCKER_IMAGE"
+                        sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
+                        sh "docker push ${DOCKER_IMAGE}"
                     }
                 }
             }
@@ -60,7 +56,7 @@ pipeline {
     post {
         always {
             echo 'Cleaning up...'
-            sh "docker rm -f $CONTAINER_NAME || true"
+            sh "docker rm -f ${CONTAINER_NAME} || true"
         }
     }
 }
