@@ -2,14 +2,14 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "twoj_login_dockerhub/node-red-ci"  // ZMIEŃ na swoją nazwę!
+        DOCKER_IMAGE = "nacymon/node-red-ci"  
         CONTAINER_NAME = "node-red-test"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/TWOJ-LOGIN/node-red.git' // podmień na swojego forka
+                git 'https://github.com/nacymon/node-red' 
             }
         }
 
