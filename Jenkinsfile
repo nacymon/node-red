@@ -2,11 +2,29 @@ pipeline {
     agent any
 
     environment {
+      
+        DOCKER_HOST = "unix:///var/run/docker.sock"
         DOCKER_IMAGE = "nacymon/node-red-ci"  
         CONTAINER_NAME = "node-red-test"  // Zmieniona nazwa kontenera
     }
 
     stages {
+
+         stage('Clear') {
+            steps {
+                script{
+                    sh '''
+                        if [ "$(docker ps -aq)" ]; then
+                          docker rm -f $(docker ps -aq)
+                        fi
+                        if [ "$(docker images -aq)" ]; then
+                          docker rmi -f $(docker images -aq)
+                        fi
+                    '''
+                }
+            }
+        }
+        
         stage('Checkout') {
             steps {
                 git 'https://github.com/nacymon/node-red' 
