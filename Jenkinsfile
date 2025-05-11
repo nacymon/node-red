@@ -1,43 +1,58 @@
 pipeline {
-  agent any
-  parameters {
-    booleanParam(name: 'PUBLISH', defaultValue: false)
-  }
-  stages {
-    stage('Checkout') {
-      steps { checkout scm }
-    }
-    stage('Build builder') {
-      steps { sh 'docker build -t node-builder -f Dockerfile.builder .' }
-    }
-    stage('Test') {
-      steps { sh 'docker run --rm node-builder' }
-    }
-    stage('Build deploy') {
-      steps { sh 'docker build -t node-deploy -f Dockerfile.deploy .' }
-    }
-    stage('Run & Verify') {
-      steps {
-        sh '''
-          docker run -d -p 3000:3000 --name node-runner node-deploy
-          sleep 5
-          curl -f http://localhost:3000 || exit 1
-        '''
-      }
-    }
-    stage('Publish') {
-      when {
-        expression { return params.PUBLISH == true }
-      }
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-          sh '''
-            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-            docker tag node-deploy youruser/node-red-deploy:latest
-            docker push youruser/node-red-deploy:latest
-          '''
+    agent {
+        docker {
+            image 'docker:24.0.5-cli'   // lekki obraz z klientem docker
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
-      }
     }
-  }
+
+    environment {
+        DOCKER_IMAGE = "nacymon/node-red-ci"
+        CONTAINER_NAME = "node-red-test"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/nacymon/node-red'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $DOCKER_IMAGE .'
+            }
+        }
+
+        stage('Run container') {
+            steps {
+                sh "docker rm -f $CONTAINER_NAME || true"
+                sh "docker run -d --name $CONTAINER_NAME -p 8080:3000 $DOCKER_IMAGE"
+                sh "sleep 10"
+            }
+        }
+
+        stage('Health check (curl)') {
+            steps {
+                sh 'apk add curl || true' // w Alpine nie ma curl domyślnie
+                sh 'curl -f http://localhost:3000 || exit 1'
+            }
+        }
+
+        stage('Publish image') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    sh "docker push $DOCKER_IMAGE"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh "docker rm -f $CONTAINER_NAME || true"
+        }
+    }
 }
