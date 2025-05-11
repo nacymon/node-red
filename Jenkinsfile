@@ -1,84 +1,43 @@
 pipeline {
-    agent any
-
-    environment {
-      
-        DOCKER_HOST = "unix:///var/run/docker.sock"
-        DOCKER_IMAGE = "nacymon/node-red-ci"  
-        CONTAINER_NAME = "node-red-test"  // Zmieniona nazwa kontenera
+  agent any
+  parameters {
+    booleanParam(name: 'PUBLISH', defaultValue: false)
+  }
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
     }
-
-    stages {
-
-         stage('Clear') {
-            steps {
-                script{
-                    sh '''
-                        if [ "$(docker ps -aq)" ]; then
-                          docker rm -f $(docker ps -aq)
-                        fi
-                        if [ "$(docker images -aq)" ]; then
-                          docker rmi -f $(docker images -aq)
-                        fi
-                    '''
-                }
-            }
-        }
-
-        stage('Checkout') {
-            steps {
-                git 'https://github.com/nacymon/node-red' 
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    sh 'docker build -t $DOCKER_IMAGE .'
-                }
-            }
-        }
-
-        stage('Run container') {
-            steps {
-                script {
-                    // Zatrzymaj, jeśli przypadkiem działa
-                    sh "docker rm -f $CONTAINER_NAME || true"
-                    // Uruchom na porcie 3000
-                    sh "docker run -d --name $CONTAINER_NAME -p 8080:3000 $DOCKER_IMAGE"
-                    // Daj aplikacji czas na odpalenie
-                    sh "sleep 10"
-                }
-            }
-        }
-
-        stage('Health check (curl)') {
-            steps {
-                script {
-                    // Sprawdź, czy curl działa — jak nie, zainstaluj
-                    sh 'which curl || (apt update && apt install -y curl)'
-                    // Sprawdź, czy aplikacja odpowiada na porcie 3000
-                    sh 'curl -f http://localhost:3000 || exit 1'
-                }
-            }
-        }
-
-        stage('Publish image') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    script {
-                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                        sh "docker push $DOCKER_IMAGE"
-                    }
-                }
-            }
-        }
+    stage('Build builder') {
+      steps { sh 'docker build -t node-builder -f Dockerfile.builder .' }
     }
-
-    post {
-        always {
-            echo 'Cleaning up...'
-            sh "docker rm -f $CONTAINER_NAME || true"
-        }
+    stage('Test') {
+      steps { sh 'docker run --rm node-builder' }
     }
+    stage('Build deploy') {
+      steps { sh 'docker build -t node-deploy -f Dockerfile.deploy .' }
+    }
+    stage('Run & Verify') {
+      steps {
+        sh '''
+          docker run -d -p 3000:3000 --name node-runner node-deploy
+          sleep 5
+          curl -f http://localhost:3000 || exit 1
+        '''
+      }
+    }
+    stage('Publish') {
+      when {
+        expression { return params.PUBLISH == true }
+      }
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+          sh '''
+            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+            docker tag node-deploy youruser/node-red-deploy:latest
+            docker push youruser/node-red-deploy:latest
+          '''
+        }
+      }
+    }
+  }
 }
