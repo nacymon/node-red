@@ -1,54 +1,66 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:20'
-        }
-    }
+    agent any
+
     environment {
-        APP_PORT = '3000'
-        IMAGE_NAME = 'my-node-red-app'
+        DOCKER_IMAGE = "twoj_login_dockerhub/node-red-ci"  // ZMIEŃ na swoją nazwę!
+        CONTAINER_NAME = "node-red-test"
     }
+
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/nacymon/node-red'
+                git 'https://github.com/TWOJ-LOGIN/node-red.git' // podmień na swojego forka
             }
         }
-        stage('Install Dependencies') {
-            steps {
-                sh 'npm install'
-            }
-        }
-        stage('Test') {
-            steps {
-                sh 'npm test || true'  // Zapewnij kontynuację przy błędach testu
-            }
-        }
+
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $IMAGE_NAME .'
+                script {
+                    sh 'docker build -t $DOCKER_IMAGE .'
+                }
             }
         }
-        stage('Deploy Locally') {
+
+        stage('Run container') {
             steps {
-                sh 'docker run -d -p $APP_PORT:3000 --name node-red-instance $IMAGE_NAME'
-                sh 'sleep 10'
-                sh 'curl -f http://localhost:$APP_PORT || exit 1'
+                script {
+                    // Zatrzymaj, jeśli przypadkiem działa
+                    sh "docker rm -f $CONTAINER_NAME || true"
+                    // Uruchom na porcie 3000
+                    sh "docker run -d --name $CONTAINER_NAME -p 3000:3000 $DOCKER_IMAGE"
+                    // Daj aplikacji czas na odpalenie
+                    sh "sleep 10"
+                }
             }
         }
-        stage('Publish') {
+
+        stage('Health check (curl)') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                    sh 'echo $PASS | docker login -u $USER --password-stdin'
-                    sh 'docker push $IMAGE_NAME'
+                script {
+                    // Sprawdź, czy curl działa — jak nie, zainstaluj
+                    sh 'which curl || (apt update && apt install -y curl)'
+                    // Sprawdź, czy aplikacja odpowiada na porcie 3000
+                    sh 'curl -f http://localhost:3000 || exit 1'
+                }
+            }
+        }
+
+        stage('Publish image') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    script {
+                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                        sh "docker push $DOCKER_IMAGE"
+                    }
                 }
             }
         }
     }
+
     post {
         always {
-            sh 'docker logs node-red-instance || true'
-            sh 'docker rm -f node-red-instance || true'
+            echo 'Cleaning up...'
+            sh "docker rm -f $CONTAINER_NAME || true"
         }
     }
 }
