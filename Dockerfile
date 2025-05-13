@@ -1,7 +1,8 @@
 FROM node:20-slim
 
-# Instalacja curl i czyszczenie cache
-RUN apt-get update && apt-get install -y curl && apt-get clean
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 COPY . .
