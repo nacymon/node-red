@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = "nacymon/node-red-ci"  
-        CONTAINER_NAME = "node-red-test"  // Zmieniona nazwa kontenera
+        CONTAINER_NAME = "node-red"  
     }
 
     stages {

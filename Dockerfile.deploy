@@ -1,9 +1,0 @@
-FROM node:20-slim
-
-WORKDIR /usr/src/app
-
-COPY --from=node-builder /usr/src/app .
-
-EXPOSE 3000
-
-CMD ["node-red"]
