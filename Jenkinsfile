@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = "nacymon/node-red-ci"  
-        CONTAINER_NAME = "node-red"  
+        CONTAINER_NAME = "node-red-test"  
     }
 
     stages {
@@ -27,7 +27,7 @@ pipeline {
                     // Zatrzymaj, jeśli przypadkiem działa
                     sh "docker rm -f $CONTAINER_NAME || true"
                     // Uruchom na porcie 3000
-                    sh "docker run -d --name $CONTAINER_NAME -p 3000:3000 $DOCKER_IMAGE"
+                    sh "docker run -d --name $CONTAINER_NAME -e PORT=3000 -p 3000:3000 $DOCKER_IMAGE"
                     // Daj aplikacji czas na odpalenie
                     sh "sleep 10"
                 }
