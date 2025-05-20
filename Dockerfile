@@ -4,13 +4,17 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates git && \
     rm -rf /var/lib/apt/lists/*
 
+# Instalacja node-red
+RUN npm install -g --omit=dev node-red
+
 WORKDIR /usr/src/app
 
+# Jeśli masz plik settings.js – skopiuj go do katalogu /data
+COPY settings.js /data/settings.js
 COPY . .
 
-RUN npm install --omit=dev
-
-# Domyślny port Node-RED
+ENV PORT=1880
 EXPOSE 1880
 
-CMD ["npx", "node-red"]
+CMD ["node-red", "--port", "1880"]
+
