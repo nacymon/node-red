@@ -5,6 +5,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
+COPY settings.js /data/settings.js
 COPY . .
 
 RUN npm install --production
@@ -12,4 +13,5 @@ RUN npm install --production
 ENV PORT=3000
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node-red", "-s", "/data/settings.js"]
+

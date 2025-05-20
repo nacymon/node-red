@@ -22,17 +22,15 @@ pipeline {
         }
 
         stage('Run container') {
-            steps {
-                script {
-                    // Zatrzymaj, jeśli przypadkiem działa
-                    sh "docker rm -f $CONTAINER_NAME || true"
-                    // Uruchom na porcie 3000
-                    sh "docker run -d --name $CONTAINER_NAME -e PORT=3000 -p 3000:3000 $DOCKER_IMAGE"
-                    // Daj aplikacji czas na odpalenie
-                    sh "sleep 10"
-                }
+             steps {
+                  script {
+                  sh "docker rm -f $CONTAINER_NAME || true"
+                  sh "docker run -d --name $CONTAINER_NAME -e PORT=3000 -p 3000:3000 $DOCKER_IMAGE"
+                  sh "sleep 10"
+                  }
             }
         }
+
 
         stage('Health check (curl)') {
             steps {
