@@ -2,52 +2,47 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "nacymon/node-red-ci"  
-        CONTAINER_NAME = "node-red-test"  
+        DOCKER_IMAGE = "nacymon/node-red-ci"
+        CONTAINER_NAME = "node-red-test"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/nacymon/node-red' 
+                git 'https://github.com/nacymon/node-red'
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh 'docker build -t $DOCKER_IMAGE .'
+                    sh "docker build -t $DOCKER_IMAGE ."
                 }
             }
         }
 
         stage('Run container') {
-             steps {
-                  script {
-                  sh "docker rm -f $CONTAINER_NAME || true"
-                  sh "docker run -d --name $CONTAINER_NAME -e PORT=3000 -p 3000:3000 $DOCKER_IMAGE"
-                  sh "sleep 10"
-                  }
+            steps {
+                script {
+                    sh "docker rm -f $CONTAINER_NAME || true"
+                    sh "docker run -d --name $CONTAINER_NAME -p 1880:1880 $DOCKER_IMAGE"
+                    sh "sleep 10"
+                }
             }
         }
 
         stage('Container logs') {
-              steps {
-                  script {
-                  sh "docker logs $CONTAINER_NAME || true"
-                  }
+            steps {
+                script {
+                    sh "docker logs $CONTAINER_NAME || true"
+                }
             }
         }
-
-
 
         stage('Health check (curl)') {
             steps {
                 script {
-                    // Sprawdź, czy curl działa — jak nie, zainstaluj
-                    sh 'which curl || (apt update && apt install -y curl)'
-                    // Sprawdź, czy aplikacja odpowiada na porcie 3000
-                    sh 'curl -f http://localhost:3000 || exit 1'
+                    sh 'curl -f http://localhost:1880 || exit 1'
                 }
             }
         }

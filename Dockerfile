@@ -1,18 +1,16 @@
 FROM node:20-slim
 
-
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates && \
+    apt-get install -y --no-install-recommends curl ca-certificates git && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
-COPY settings.js /data/settings.js
+
 COPY . .
 
-RUN npm install --production
+RUN npm install --omit=dev
 
-ENV PORT=3000
-EXPOSE 3000
+# Domyślny port Node-RED
+EXPOSE 1880
 
-
-CMD ["npx", "node-red", "--port", "3000"]
+CMD ["npx", "node-red"]
