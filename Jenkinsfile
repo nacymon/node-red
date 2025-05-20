@@ -31,6 +31,15 @@ pipeline {
             }
         }
 
+        stage('Container logs') {
+              steps {
+                  script {
+                  sh "docker logs $CONTAINER_NAME || true"
+                  }
+            }
+        }
+
+
 
         stage('Health check (curl)') {
             steps {

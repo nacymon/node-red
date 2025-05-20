@@ -1,5 +1,6 @@
 FROM node:20-slim
 
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
@@ -13,5 +14,5 @@ RUN npm install --production
 ENV PORT=3000
 EXPOSE 3000
 
-CMD ["node-red", "-s", "/data/settings.js"]
 
+CMD ["npx", "node-red", "--port", "3000"]
