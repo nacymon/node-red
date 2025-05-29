@@ -1,12 +1,14 @@
 pipeline {
     agent {
         docker {
-            image 'docker:24.0.5-dind'
-            args '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
+            image 'docker:24.0.5-cli'
+            args '--network host -v /certs/client:/certs/client:ro'
         }
     }
 
     environment {
+        DOCKER_HOST = "tcp://docker:2375"
+        DOCKER_TLS_VERIFY = "0"
         DOCKER_IMAGE = "nacymon/node-red-ci"
         CONTAINER_NAME = "RED"
         DOCKER_NETWORK = "CI"
@@ -14,6 +16,15 @@ pipeline {
     }
 
     stages {
+        stage('Setup DinD') {
+            steps {
+                script {
+                    sh "docker version || true"
+                    sh "docker info || true"
+                }
+            }
+        }
+        
         stage('Checkout') {
             steps {
                 git 'https://github.com/nacymon/node-red'
