@@ -1,9 +1,16 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'docker:24.0.5-dind'
+            args '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     environment {
         DOCKER_IMAGE = "nacymon/node-red-ci"
-        CONTAINER_NAME = "node-red-test"
+        CONTAINER_NAME = "RED"
+        DOCKER_NETWORK = "CI"
+        NODE_PORT = "3000"
     }
 
     stages {
@@ -21,28 +28,32 @@ pipeline {
             }
         }
 
-        stage('Run container') {
+        stage('Create Network') {
+            steps {
+                script {
+                    sh "docker network create $DOCKER_NETWORK || true"
+                }
+            }
+        }
+
+        stage('Run Node-RED container') {
             steps {
                 script {
                     sh "docker rm -f $CONTAINER_NAME || true"
-                    sh "docker run -d --name $CONTAINER_NAME -p 1880:1880 $DOCKER_IMAGE"
+                    sh "docker run -d --name $CONTAINER_NAME --network $DOCKER_NETWORK -p $NODE_PORT:$NODE_PORT $DOCKER_IMAGE"
                     sh "sleep 10"
                 }
             }
         }
 
-        stage('Container logs') {
+        stage('Health check using curl container') {
             steps {
                 script {
-                    sh "docker logs $CONTAINER_NAME || true"
-                }
-            }
-        }
-
-        stage('Health check (curl)') {
-            steps {
-                script {
-                    sh 'curl -f http://localhost:1880 || exit 1'
+                    // W kontenerze curl, wykonujemy żądanie do RED:3000
+                    sh """
+                        docker run --rm --network $DOCKER_NETWORK curlimages/curl:8.7.1 \
+                        curl -f http://$CONTAINER_NAME:$NODE_PORT
+                    """
                 }
             }
         }
@@ -63,6 +74,7 @@ pipeline {
         always {
             echo 'Cleaning up...'
             sh "docker rm -f $CONTAINER_NAME || true"
+            sh "docker network rm $DOCKER_NETWORK || true"
         }
     }
 }
