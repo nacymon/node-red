@@ -1,14 +1,7 @@
 pipeline {
-    agent {
-        docker {
-            image 'docker:24.0.5-cli'
-            args '--network host -v /certs/client:/certs/client:ro'
-        }
-    }
+    agent any
 
     environment {
-        DOCKER_HOST = "tcp://docker:2375"
-        DOCKER_TLS_VERIFY = "0"
         DOCKER_IMAGE = "nacymon/node-red-ci"
         CONTAINER_NAME = "RED"
         DOCKER_NETWORK = "CI"
@@ -16,15 +9,6 @@ pipeline {
     }
 
     stages {
-        stage('Setup DinD') {
-            steps {
-                script {
-                    sh "docker version || true"
-                    sh "docker info || true"
-                }
-            }
-        }
-        
         stage('Checkout') {
             steps {
                 git 'https://github.com/nacymon/node-red'
@@ -33,49 +17,38 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    sh "docker build -t $DOCKER_IMAGE ."
-                }
+                sh "docker build -t $DOCKER_IMAGE ."
             }
         }
 
         stage('Create Network') {
             steps {
-                script {
-                    sh "docker network create $DOCKER_NETWORK || true"
-                }
+                sh "docker network create $DOCKER_NETWORK || true"
             }
         }
 
-        stage('Run Node-RED container') {
+        stage('Run Node-RED') {
             steps {
-                script {
-                    sh "docker rm -f $CONTAINER_NAME || true"
-                    sh "docker run -d --name $CONTAINER_NAME --network $DOCKER_NETWORK -p $NODE_PORT:$NODE_PORT $DOCKER_IMAGE"
-                    sh "sleep 10"
-                }
+                sh "docker rm -f $CONTAINER_NAME || true"
+                sh "docker run -d --name $CONTAINER_NAME --network $DOCKER_NETWORK -p $NODE_PORT:$NODE_PORT $DOCKER_IMAGE"
+                sh "sleep 5"
             }
         }
 
-        stage('Health check using curl container') {
+        stage('Health Check') {
             steps {
-                script {
-                    // W kontenerze curl, wykonujemy żądanie do RED:3000
-                    sh """
-                        docker run --rm --network $DOCKER_NETWORK curlimages/curl:8.7.1 \
-                        curl -f http://$CONTAINER_NAME:$NODE_PORT
-                    """
-                }
+                sh """
+                    docker run --rm --network $DOCKER_NETWORK curlimages/curl:8.7.1 \
+                    curl -f http://$CONTAINER_NAME:$NODE_PORT
+                """
             }
         }
 
-        stage('Publish image') {
+        stage('Push to DockerHub') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    script {
-                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                        sh "docker push $DOCKER_IMAGE"
-                    }
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    sh "docker push $DOCKER_IMAGE"
                 }
             }
         }
@@ -83,7 +56,7 @@ pipeline {
 
     post {
         always {
-            echo 'Cleaning up...'
+            echo 'Cleanup'
             sh "docker rm -f $CONTAINER_NAME || true"
             sh "docker network rm $DOCKER_NETWORK || true"
         }
