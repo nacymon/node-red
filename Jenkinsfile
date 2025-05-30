@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "nacymon/node-red-ci"
+        DOCKER_IMAGE = "nacymon/node-red-ci:v1"
         CONTAINER_NAME = "RED"
         DOCKER_NETWORK = "CI"
         NODE_PORT = "3000"
