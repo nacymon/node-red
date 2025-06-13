@@ -14,6 +14,6 @@ COPY . .
 ENV PORT=3000
 EXPOSE 3000
 
-CMD ["node-red", "--port", "3000"]
+CMD ["false"]
 
 
